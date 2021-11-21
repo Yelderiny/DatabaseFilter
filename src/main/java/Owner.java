@@ -44,6 +44,13 @@ public class Owner
         public void setSex(String sex) { this.sex = sex; }
         public void setpNum(int pNum) { this.pNum = pNum; }
         public void addProperty(Property property) { properties.add(property); }
+        public void addProperty(ArrayList<Property> list)
+        {
+            for (Property property: list)
+            {
+                addProperty(property);
+            }
+        }
         public void addPhoneNums(String phoneNum) { phoneNums.add(phoneNum); }
 
 
