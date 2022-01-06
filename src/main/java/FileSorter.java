@@ -34,14 +34,14 @@ public class FileSorter
      */
     public void readExcel(final String inPath, final String outPath )
     {
-        File excelFile = new File(inPath); //get input excel file
+        var excelFile = new File(inPath); //get input excel file
 
         try (FileInputStream input = new FileInputStream(excelFile))
         {
-            XSSFWorkbook workbook = new XSSFWorkbook(input); //get workbook from the FileInputStream
+            var workbook = new XSSFWorkbook(input); //get workbook from the FileInputStream
 
-            XSSFSheet propSheet = workbook.getSheetAt(0); //instantiate sheet 1: Properties
-            XSSFSheet ownSheet = workbook.getSheetAt(1); //instantiate sheet 2: Owners
+            var propSheet = workbook.getSheetAt(0); //instantiate sheet 1: Properties
+            var ownSheet = workbook.getSheetAt(1); //instantiate sheet 2: Owners
 
             allProperties.addAll(rowToProperty(propSheet)); //fill availableProperties with all the properties in sheet 1
             allOwners.addAll(rowToOwner(ownSheet)); //fill allOwners with all the owners in sheet 2
@@ -62,7 +62,7 @@ public class FileSorter
      */
     private ArrayList<Property> rowToProperty(final XSSFSheet propSheet)
     {
-        ArrayList<Property> propertyList = new ArrayList<>(); //return variable
+        var propertyList = new ArrayList<Property>(); //return variable
 //        ArrayList<Cell> cellNums = new ArrayList<>(cellSeeker(propSheet, "P-NUMBER", "AREA", "BUILDING NAME","ROOMS DESCRIPTION", "ACTUAL AREA"));
 
         //traverse every Row with enhance for loop
@@ -70,7 +70,7 @@ public class FileSorter
         {
             if (row.getRowNum() == 0) continue;
 
-            Property prop = new Property(); //create new com.dreamcatcherbroker.leadgenerator.Property instance
+            var prop = new Property(); //create new com.dreamcatcherbroker.leadgenerator.Property instance
 
             //traverse every cell in the row
             for (Cell cell : row)
@@ -97,14 +97,14 @@ public class FileSorter
      */
     private ArrayList<Owner> rowToOwner(final XSSFSheet ownSheet)
     {
-        ArrayList<Owner> ownersList = new ArrayList<>(); //return variable
+        var ownersList = new ArrayList<Owner>(); //return variable
 
         //traverse every Row with enhance for loop
         for (Row row : ownSheet)
         {
             if (row.getRowNum() == 0) continue;
 
-            Owner owner = new Owner(); //create new com.dreamcatcherbroker.leadgenerator.Owner instance
+            var owner = new Owner(); //create new com.dreamcatcherbroker.leadgenerator.Owner instance
 
             //traverse every cell in the row
             for(Cell cell : row)
@@ -127,7 +127,7 @@ public class FileSorter
     private String reformatName(final Cell cell)
     {
         String[] names = cell.getStringCellValue().split(" ");
-        StringBuilder finalName = new StringBuilder();
+        var finalName = new StringBuilder();
 
         for (String name : names)
         {
@@ -212,7 +212,7 @@ public class FileSorter
      */
     private String NumberReformater(final String phoneNumber)
     {
-        StringBuilder reformattedNum = new StringBuilder(); //initialize StringBuilder
+        var reformattedNum = new StringBuilder(); //initialize StringBuilder
         char[] num = phoneNumber.toCharArray(); //convert to char array
 
         //traverse the characters
@@ -365,14 +365,14 @@ public class FileSorter
      */
     public void createExcelFile(final String outPath)
     {
-        File excelFile = new File(outPath); //get input excel file
+        var excelFile = new File(outPath); //get input excel file
 
 
         try(FileOutputStream output = new FileOutputStream(excelFile))
         {
-            XSSFWorkbook workbook = new XSSFWorkbook(); //create blank workbook
-            XSSFSheet spreadsheet = workbook.createSheet( " Prospective Clients "); //create first spreadsheet
-            XSSFSheet spreadsheet2 = workbook.createSheet(" Investors "); //create second spreadsheet
+            var workbook = new XSSFWorkbook(); //create blank workbook
+            var spreadsheet = workbook.createSheet( " Prospective Clients "); //create first spreadsheet
+            var spreadsheet2 = workbook.createSheet(" Investors "); //create second spreadsheet
 
             Map <String, Object[]> clientInfo = new TreeMap<>(); //maps a number index to client information
             Map <String, Object[]> investorInfo = new TreeMap<>(); //maps a number index to investor information
@@ -432,21 +432,8 @@ public class FileSorter
     public static void main(String[] args)
     {
         FileSorter jimmy = new FileSorter();
-//        FileSorter kimmy = new FileSorter();
-//        FileSorter timmy = new FileSorter();
-
-
-
 
         jimmy.readExcel("/Users/yelderiny/Intelligence/DreamCatcher/Data/Damac Hills/DAMAC Hills (2020) copy.xlsx",
                 "/Users/yelderiny/Intelligence/DreamCatcher/Database Filter/DAMAC Hills Owners.xlsx");
-
-//        kimmy.readExcel("/Users/yelderiny/Intelligence/DreamCatcher/Data/Business Bay/Business Bay.xlsx",
-//                "/Users/yelderiny/Intelligence/DreamCatcher/Database Filter/BB Investors.txt");
-//
-//        timmy.readExcel("/Users/yelderiny/Intelligence/DreamCatcher/Data/JVC/JVC&JVT.xlsx",
-//                "/Users/yelderiny/Intelligence/DreamCatcher/Database Filter/JV Investors.txt");
-
-
     }
 }

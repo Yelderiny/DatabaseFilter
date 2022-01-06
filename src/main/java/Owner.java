@@ -57,7 +57,7 @@ public class Owner
         @Override
         public String toString()
         {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             getProperties().stream().filter(Objects::nonNull).forEach(property -> sb.append("- ").append(property).append("\n"));
 
             return String.format("Name: %s -%s \ne-Mail: %s \n", getName(), getSex(), getEmail())
