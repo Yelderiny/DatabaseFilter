@@ -1,6 +1,6 @@
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -15,42 +15,33 @@ import java.util.stream.Collectors;
 
 public class FileSorter
 {
-    //raw data
     private final ArrayList<Property> allProperties = new ArrayList<>(); //all properties
-    private final ArrayList<Owner> allOwners = new ArrayList<>(); //clients without properties
-
-    //refined data
+    private final ArrayList<Owner> allOwners = new ArrayList<>(); //owners without properties
     private final ArrayList<Owner> prospectiveClients = new ArrayList<>(); //owners with properties
-    private final ArrayList<Owner> investors = new ArrayList<>(); //owners with multiple properties
 
     //constraints
     private final String[] rejectedOwners = {"bank", "properties", "limited", "investment", "estate", "estates",
             "engineering", "development", "llc", "l.l.c", "(l.l.c)", "ltd.", "ltd",  "finance", "commercial", "co", "h.h.",
-            "sheikh", "tamweel", "united", "capital", "company", "aal", "h.h.al", "h.e", "p.j.s.c"}; //list of owner keywords not allowed in the prospectiveClients list
+            "sheikh", "prince", "princess", "tamweel", "united", "capital", "company", "aal", "h.h.al", "h.e", "p.j.s.c"}; //list of owner keywords not allowed in the prospectiveClients list
 
     /**
-     * Extracts all the information from the input Excel files, transforms them into objects, filters them, then outputs them
-     * into an output file
+     * Extracts all the information from the input Excel file, transforms them into objects, and filters them.
+     * @param inFile the Excel file
+     * @param index index of the relevant sheet
+     * @param type an 'o' or 'p' which indicates whether it's a file of owners or properties
      */
-    public void readExcel(final String inPath, final String outPath )
+    public void readExcel(final File inFile, final int index, final String type)
     {
-        var excelFile = new File(inPath); //get input excel file
-
-        try (FileInputStream input = new FileInputStream(excelFile))
+        try (FileInputStream input = new FileInputStream(inFile))
         {
             var workbook = new XSSFWorkbook(input); //get workbook from the FileInputStream
 
-            var propSheet = workbook.getSheetAt(0); //instantiate sheet 1: Properties
-            var ownSheet = workbook.getSheetAt(1); //instantiate sheet 2: Owners
+            var sheet = workbook.getSheetAt(index);
 
-            allProperties.addAll(rowToProperty(propSheet)); //fill availableProperties with all the properties in sheet 1
-            allOwners.addAll(rowToOwner(ownSheet)); //fill allOwners with all the owners in sheet 2
+            if (type.equalsIgnoreCase("o")) allOwners.addAll(rowToOwner(sheet));
+            else if (type.equalsIgnoreCase("p")) allProperties.addAll(rowToProperty(sheet));
 
-            setProperty(); //prospective clients must be filled at this point
-
-//            System.out.println(cellSeeker(propSheet, "P-NUMBER", "AREA", "BUILDING NAME","ROOMS DESCRIPTION", "ACTUAL AREA"));
-//            createFile(outPath);
-            createExcelFile(outPath);
+            if (!allOwners.isEmpty() && !allProperties.isEmpty()) setProperty();
         }
         catch (IOException ioe) { ioe.printStackTrace(); }
     }
@@ -63,7 +54,7 @@ public class FileSorter
     private ArrayList<Property> rowToProperty(final XSSFSheet propSheet)
     {
         var propertyList = new ArrayList<Property>(); //return variable
-//        ArrayList<Cell> cellNums = new ArrayList<>(cellSeeker(propSheet, "P-NUMBER", "AREA", "BUILDING NAME","ROOMS DESCRIPTION", "ACTUAL AREA"));
+        var headerIndices = new HashMap<>(cellSeeker(propSheet, "P-NUMBER", "AREA", "PROJECT", "ROOMS DESCRIPTION", "ACTUAL AREA"));
 
         //traverse every Row with enhance for loop
         for (Row row : propSheet)
@@ -76,19 +67,23 @@ public class FileSorter
             for (Cell cell : row)
             {
                 //identify the column and add to the object instance accordingly
-                switch (cell.getColumnIndex())
+                if (cell.getColumnIndex() == headerIndices.get("P-NUMBER"))
                 {
-                    case 0 -> prop.setpNum(Integer.parseInt(cell.getStringCellValue()));
-                    case 1 -> prop.setLocation(cell.getStringCellValue());
-                    case 9 -> prop.setName(cell.getStringCellValue());
-                    case 5 -> prop.setBedrooms(cell.getStringCellValue());
-                    case 6 -> prop.setSize(cell.getNumericCellValue());
+                    var cellType = cell.getCellType();
+
+                    if (cellType == CellType.NUMERIC) prop.setpNum((int) cell.getNumericCellValue());
+                    else if (cellType == CellType.STRING) prop.setpNum(Integer.parseInt(cell.getStringCellValue()));
                 }
+                else if (cell.getColumnIndex() == headerIndices.get("AREA") && headerIndices.get("AREA") != -1) prop.setLocation(cell.getStringCellValue());
+                else if (cell.getColumnIndex() == headerIndices.get("PROJECT") && headerIndices.get("PROJECT") != -1) prop.setName(cell.getStringCellValue());
+                else if (cell.getColumnIndex() == headerIndices.get("ROOMS DESCRIPTION") && headerIndices.get("ROOMS DESCRIPTION") != 1) prop.setBedrooms(cell.getStringCellValue());
+                else if (cell.getColumnIndex() == headerIndices.get("ACTUAL AREA") && headerIndices.get("ACTUAL AREA") != -1) prop.setSize(cell.getNumericCellValue());
             }
             propertyList.add(prop); //add the property to the output list
         }
         return propertyList;
     }
+
 
     /**
      * Transforms a row into an com.dreamcatcherbroker.leadgenerator.Owner Arraylist from an Excel sheet and filters out primary market owners
@@ -98,6 +93,7 @@ public class FileSorter
     private ArrayList<Owner> rowToOwner(final XSSFSheet ownSheet)
     {
         var ownersList = new ArrayList<Owner>(); //return variable
+        var headerIndices = new HashMap<>(cellSeeker(ownSheet, "P-NUMBER", "NAME", "GENDER", "PHONE", "MOBILE", "SECONDARY MOBILE"));
 
         //traverse every Row with enhance for loop
         for (Row row : ownSheet)
@@ -110,20 +106,29 @@ public class FileSorter
             for(Cell cell : row)
             {
                 //identify the column and add to the object instance accordingly
-                switch (cell.getColumnIndex())
+                if (cell.getColumnIndex() == headerIndices.get("P-NUMBER"))
                 {
-                    case 0 -> owner.setpNum(Integer.parseInt(cell.getStringCellValue()));
-                    case 6 -> owner.setName(reformatName(cell));
-                    case 13 -> owner.setSex(cell.getStringCellValue());
-//                    case 10 -> owner.setEmail(cell.getStringCellValue());
-                    case 9, 15, 16 -> setPhoneNums(owner, cell);
+                    var cellType = cell.getCellType();
+
+                    if (cellType == CellType.NUMERIC) owner.setpNum((int) cell.getNumericCellValue());
+                    else if (cellType == CellType.STRING) owner.setpNum(Integer.parseInt(cell.getStringCellValue()));
                 }
+                else if (cell.getColumnIndex() == headerIndices.get("NAME") && headerIndices.get("NAME") != -1) owner.setName(reformatName(cell));
+                else if (cell.getColumnIndex() == headerIndices.get("GENDER") && headerIndices.get("GENDER") != -1) owner.setSex(cell.getStringCellValue());
+                else if ((cell.getColumnIndex() == headerIndices.get("PHONE") && headerIndices.get("PHONE") != -1) ||
+                        (cell.getColumnIndex() == headerIndices.get("MOBILE") && headerIndices.get("MOBILE") != -1) ||
+                        (cell.getColumnIndex() == headerIndices.get("SECONDARY MOBILE") && headerIndices.get("SECONDARY MOBILE") != -1)) setPhoneNums(owner, cell);
             }
-            if (isQualified(owner)) ownersList.add(owner); //add the owner to the output list if they are qualified
+            if (owner.getName() != null && isQualified(owner)) ownersList.add(owner); //add the owner to the output list if they are qualified
         }
         return ownersList;
     }
 
+    /**
+     * Changes a name from whatever case it is at input to Camel Casing
+     * @param cell the cell with the name
+     * @return the name in camel casing
+     */
     private String reformatName(final Cell cell)
     {
         String[] names = cell.getStringCellValue().split(" ");
@@ -140,39 +145,31 @@ public class FileSorter
         return finalName.toString();
     }
 
-    //TODO test this. It's meant to locate a cell in the top row based on the string input
-//    private int cellSeeker(final XSSFSheet ownSheet, final String name)
-//    {
-//        Row row = ownSheet.getRow(0);
-//
-//        for (Cell cell : row)
-//        {
-//            if (cell.getStringCellValue().equalsIgnoreCase(name)) return cell.getColumnIndex();
-//        }
-//        return -1;
-//    }
+    /**
+     * Attemps to put all arguments in a hashmap with its associated column index in the excel file sheet
+     * @param sheet the sheet in question
+     * @param headers the input string headers
+     * @return a hashmap of headers and their indices
+     */
+    private HashMap<String, Integer> cellSeeker(final XSSFSheet sheet, final String... headers)
+    {
+        var indices = new HashMap<String, Integer>();
 
-//    private ArrayList<Cell> cellSeeker(final XSSFSheet sheet, String... args)
-//    {
-//        ArrayList<Cell> cellNums = new ArrayList<>();
-//
-//        Row row = sheet.getRow(0);
-//
-//        for (String keyword : args)
-//        {
-//            boolean found = false;
-//            for (Cell cell : row)
-//            {
-//                if (keyword.equalsIgnoreCase(cell.getStringCellValue()))
-//                {
-//                    found = true;
-//                    cellNums.add(cell);
-//                }
-//            }
-//            if (!found) cellNums.add(null);
-//        }
-//        return cellNums;
-//    }
+        for (String keyword : headers)
+        {
+            boolean found = false;
+            for (Cell cell : sheet.getRow(0))
+            {
+                if (keyword.equalsIgnoreCase(cell.getStringCellValue()))
+                {
+                    found = true;
+                    indices.put(keyword, cell.getColumnIndex());
+                }
+            }
+            if (!found) indices.put(keyword, -1);
+        }
+        return indices;
+    }
 
     /**
      * Invoked when creating the owner object from the input sheet, this method searches the input cell for a valid
@@ -183,26 +180,35 @@ public class FileSorter
      */
     private void setPhoneNums(final Owner owner, final Cell cell)
     {
-        boolean unique = true; //to track whether the number is already registered under that owner
-
         //the cell is not empty and the number is longer than 7 digits and is not a home/work phone
-        if (!cell.getStringCellValue().equals("") && cell.getStringCellValue().length() > 7 && !cell.getStringCellValue().startsWith("04"))
+        if (!cell.getStringCellValue().equals("") && cell.getStringCellValue().length() > 6)
         {
-            String reformattedNum = NumberReformater(cell.getStringCellValue()); //format the number correctly
+            String num = NumberReformater(cell.getStringCellValue()); //format the number correctly
+            boolean valid = isValidNumber(num);
 
-            //traverse the arraylist of phone numbers registered under the owner
-            for (String phoneNum : owner.getPhoneNums())
-            {
-                if (reformattedNum.equals(phoneNum))
-                {
-                    //the number is found
-                    unique = false;
-                    break;
-                }
-            }
-            //the number is not found... add it
-            if (unique) owner.addPhoneNums(reformattedNum);
+            if (valid && !owner.getPhoneNums().contains(num)) owner.addPhoneNums(num);
         }
+    }
+
+    /**
+     * Checks if a number is valid based on how a UAE number is supposed to look like
+     * @param num phone number
+     * @return a bool to represent whether the phone number is valid or not
+     */
+    private boolean isValidNumber(final String num)
+    {
+        if (num.startsWith("971") && num.length() != 12) return false;
+        if (num.length() < 7) return false;
+        if (num.startsWith("04")) return false;
+        if (num.startsWith("9715") && (num.substring(4).equals(
+                "000") &&
+                num.substring(4).equals("0000") &&
+                num.substring(4).equals("00000") &&
+                num.substring(4).equals("000000") &&
+                num.substring(4).equals("0000000") &&
+                num.substring(4).equals("00000000"))) return false;
+
+        return true;
     }
 
     /**
@@ -212,33 +218,34 @@ public class FileSorter
      */
     private String NumberReformater(final String phoneNumber)
     {
-        var reformattedNum = new StringBuilder(); //initialize StringBuilder
+        var newNum = new StringBuilder(); //initialize StringBuilder
         char[] num = phoneNumber.toCharArray(); //convert to char array
 
         //traverse the characters
-        for (char c : num) if (Character.isDigit(c)) reformattedNum.append(c); //add them to the StringBuilder only if they are numbers
+        for (char c : num) if (Character.isDigit(c)) newNum.append(c); //add them to the StringBuilder only if they are numbers
 
         //reformat numbers from 0XY to 971XY
-        if (    reformattedNum.substring(0,3).equals("050") ||
-                reformattedNum.substring(0,3).equals("052") ||
-                reformattedNum.substring(0,3).equals("055") ||
-                reformattedNum.substring(0,3).equals("056") ||
-                reformattedNum.substring(0,3).equals("057") ||
-                reformattedNum.substring(0,3).equals("058")) reformattedNum.replace(0, 1, "971");
+        if (    newNum.substring(0,3).equals("050") ||
+                newNum.substring(0,3).equals("052") ||
+                newNum.substring(0,3).equals("055") ||
+                newNum.substring(0,3).equals("056") ||
+                newNum.substring(0,3).equals("057") ||
+                newNum.substring(0,3).equals("058")) newNum.replace(0, 1, "971");
 
         //reformat numbers from XY to 971XY
-        if ((   reformattedNum.substring(0,2).equals("50") ||
-                reformattedNum.substring(0,2).equals("52") ||
-                reformattedNum.substring(0,2).equals("55") ||
-                reformattedNum.substring(0,2).equals("56") ||
-                reformattedNum.substring(0,2).equals("57") ||
-                reformattedNum.substring(0,2).equals("58"))
-                && reformattedNum.length() == 9) reformattedNum = new StringBuilder("971" + reformattedNum);
+        if ((   newNum.substring(0,2).equals("50") ||
+                newNum.substring(0,2).equals("52") ||
+                newNum.substring(0,2).equals("55") ||
+                newNum.substring(0,2).equals("56") ||
+                newNum.substring(0,2).equals("57") ||
+                newNum.substring(0,2).equals("58"))
+                && newNum.length() == 9) newNum.insert(0, "971");
 
-        if (reformattedNum.substring(0,2).equals("00")) reformattedNum.delete(0,2); //reformat numbers from 00... to ...
+        if (newNum.substring(0,5).equals("97105")) newNum.deleteCharAt(3); //reformat numbers from 9710XY to 971XY
 
+        if (newNum.substring(0,2).equals("00")) newNum.delete(0,2); //reformat numbers from 00... to ...
 
-        return reformattedNum.toString().trim(); //return the string trimmed
+        return newNum.toString().trim(); //return the string trimmed
     }
 
     /**
@@ -308,7 +315,6 @@ public class FileSorter
         return !c.isEmpty();
     }
 
-
     /**
      * Rules out unqualified owners from the allOwners list so that only secondary market owners make it onto that list
      *
@@ -330,13 +336,7 @@ public class FileSorter
 
         //check 2: no phone numbers or emails
         //!owner.getEmail().equals("") ||
-        return (!owner.getPhoneNums().isEmpty() &&
-                !owner.getPhoneNums().contains("971500") &&
-                !owner.getPhoneNums().contains("9715000")) &&
-                !owner.getPhoneNums().contains("971500000") &&
-                !owner.getPhoneNums().contains("9715000000") &&
-                !owner.getPhoneNums().contains("97150000000") &&
-                !owner.getPhoneNums().contains("971500000000");
+        return !owner.getPhoneNums().isEmpty();
     }
 
     /**
@@ -361,14 +361,11 @@ public class FileSorter
 
     /**
      * Creates an Excel file from the prospectiveClients arraylist
-     * @param outPath output location
+     * @param outFile output location
      */
-    public void createExcelFile(final String outPath)
+    public void createExcelFile(final File outFile)
     {
-        var excelFile = new File(outPath); //get input excel file
-
-
-        try(FileOutputStream output = new FileOutputStream(excelFile))
+        try(FileOutputStream output = new FileOutputStream(outFile))
         {
             var workbook = new XSSFWorkbook(); //create blank workbook
             var spreadsheet = workbook.createSheet( " Prospective Clients "); //create first spreadsheet
@@ -428,12 +425,27 @@ public class FileSorter
         }
     }
 
-
     public static void main(String[] args)
     {
-        FileSorter jimmy = new FileSorter();
+        var townSquare = new FileSorter();
+        var damacHills = new FileSorter();
 
-        jimmy.readExcel("/Users/yelderiny/Intelligence/DreamCatcher/Data/Damac Hills/DAMAC Hills (2020) copy.xlsx",
-                "/Users/yelderiny/Intelligence/DreamCatcher/Database Filter/DAMAC Hills Owners.xlsx");
+        var damacHillsInFile = new File("/Users/yelderiny/Intelligence/DreamCatcher/Data/Damac Hills/DAMAC Hills (2020) copy.xlsx");
+        var damacHillsOutFile = new File("/Users/yelderiny/Intelligence/DreamCatcher/Database Filter/DAMAC Hills Owners.xlsx");
+
+        var townSquareInFile = new File("/Users/yelderiny/Intelligence/DreamCatcher/Data/Town Square/TOWN_SQUARE_DUBAI.xlsx");
+        var townSQuareOutFile = new File("/Users/yelderiny/Intelligence/DreamCatcher/Data/Town Square/townSquare_filtered.xlsx");
+
+
+        townSquare.readExcel(townSquareInFile,0, "p");
+        townSquare.readExcel(townSquareInFile,1, "o");
+        townSquare.readExcel(townSquareInFile,2, "o");
+
+        townSquare.createExcelFile(townSQuareOutFile);
+
+//        damacHills.readExcel(damacHillsInFile, 0, "p");
+//        damacHills.readExcel(damacHillsInFile, 1, "o");
+//
+//        damacHills.createExcelFile(damacHillsOutFile);
     }
 }
