@@ -20,9 +20,9 @@ public class FileSorter
     private final ArrayList<Owner> prospectiveClients = new ArrayList<>(); //owners with properties
 
     //constraints
-    private final String[] rejectedOwners = {"bank", "properties", "limited", "investment", "estate", "estates",
+    private final ArrayList<String> rejectedOwners = new ArrayList<>(Arrays.asList("bank", "properties", "limited", "investment", "estate", "estates",
             "engineering", "development", "llc", "l.l.c", "(l.l.c)", "ltd.", "ltd",  "finance", "commercial", "co", "h.h.",
-            "sheikh", "prince", "princess", "tamweel", "united", "capital", "company", "aal", "h.h.al", "h.e", "p.j.s.c"}; //list of owner keywords not allowed in the prospectiveClients list
+            "sheikh", "prince", "princess", "tamweel", "united", "capital", "company", "aal", "h.h.al", "h.e", "p.j.s.c")); //list of owner keywords not allowed in the prospectiveClients list
 
     /**
      * Extracts all the information from the input Excel file, transforms them into objects, and filters them.
@@ -180,13 +180,12 @@ public class FileSorter
      */
     private void setPhoneNums(final Owner owner, final Cell cell)
     {
-        //the cell is not empty and the number is longer than 7 digits and is not a home/work phone
+        //the cell is not empty and the number is longer than 6 digits
         if (!cell.getStringCellValue().equals("") && cell.getStringCellValue().length() > 6)
         {
             String num = NumberReformater(cell.getStringCellValue()); //format the number correctly
-            boolean valid = isValidNumber(num);
 
-            if (valid && !owner.getPhoneNums().contains(num)) owner.addPhoneNums(num);
+            if (isValidNumber(num) && !owner.getPhoneNums().contains(num)) owner.addPhoneNums(num);
         }
     }
 
@@ -197,18 +196,17 @@ public class FileSorter
      */
     private boolean isValidNumber(final String num)
     {
-        if (num.startsWith("971") && num.length() != 12) return false;
-        if (num.length() < 7) return false;
-        if (num.startsWith("04")) return false;
-        if (num.startsWith("9715") && (num.substring(4).equals(
-                "000") &&
+        boolean a = num.startsWith("9715") &&
+                (num.substring(4).equals("000") &&
                 num.substring(4).equals("0000") &&
                 num.substring(4).equals("00000") &&
                 num.substring(4).equals("000000") &&
                 num.substring(4).equals("0000000") &&
-                num.substring(4).equals("00000000"))) return false;
+                num.substring(4).equals("00000000"));
+        boolean b = num.startsWith("971") && num.length() != 12;
+        boolean c = num.startsWith("04");
 
-        return true;
+        return !a && !b && !c;
     }
 
     /**
@@ -278,7 +276,7 @@ public class FileSorter
                         }
 
                         //the owner is differently named but has the same phone number
-                        else if (hasCommonNums(owner.getPhoneNums(), prospectiveClient.getPhoneNums()))
+                        else if (hasCommonElements(owner.getPhoneNums(), prospectiveClient.getPhoneNums()))
                         {
                             unique = false; //owner is not unique
 
@@ -302,20 +300,6 @@ public class FileSorter
     }
 
     /**
-     * Invoked when first creating the prospectiveClients arraylist, this method checks if there is any element of one
-     * arraylist that is present in the other arraylist. This is to find out if two arraylists of phone numbers have the
-     * same phone number
-     * @param a an arraylist of phone numbers
-     * @param b an arraylist of phone numbers
-     * @return true if there is a common phone number in both lists, false otherwise
-     */
-    private boolean hasCommonNums(final ArrayList<String> a, final ArrayList<String> b)
-    {
-        ArrayList<String> c = a.stream().filter(b::contains).collect(Collectors.toCollection(ArrayList::new));
-        return !c.isEmpty();
-    }
-
-    /**
      * Rules out unqualified owners from the allOwners list so that only secondary market owners make it onto that list
      *
      * This function needs to use the google phone number checking library
@@ -324,19 +308,27 @@ public class FileSorter
      */
     private boolean isQualified(final Owner owner)
     {
-        String[] names = owner.getName().split(" "); //isolate each word in the name
+        var lowerCaseNames = new ArrayList<>(List.of(owner.getName().split(" "))); //isolate each word in the name and insert into an arraylist
+        lowerCaseNames.replaceAll(String::toLowerCase); //change all names to lower case
 
-        //check 1: owned by a developer/corporation/sheikh
+        boolean a = hasCommonElements(lowerCaseNames, rejectedOwners); //owned by a developer/corporation/sheikh
+        boolean b = owner.getPhoneNums().isEmpty(); //no phone numbers (or e-mails if necessary)
 
-        //traverse the words in the name and the keywords in rejectedOwners
-        for (String word : names)
-        {
-            for (String keyword : rejectedOwners) if (word.equalsIgnoreCase(keyword)) return false; //false if there is a match between the name and the keyword
-        }
+        return !a && !b;
+    }
 
-        //check 2: no phone numbers or emails
-        //!owner.getEmail().equals("") ||
-        return !owner.getPhoneNums().isEmpty();
+    /**
+     * Invoked when first creating the prospectiveClients arraylist, this method checks if there is any element of one
+     * arraylist that is present in the other arraylist. This is to find out if two arraylists have the
+     * same elements
+     * @param a an arraylist of phone numbers
+     * @param b an arraylist of phone numbers
+     * @return true if there is a common phone number in both lists, false otherwise
+     */
+    private boolean hasCommonElements(final ArrayList<String> a, final ArrayList<String> b)
+    {
+        ArrayList<String> c = a.stream().filter(b::contains).collect(Collectors.toCollection(ArrayList::new));
+        return !c.isEmpty();
     }
 
     /**
@@ -346,9 +338,7 @@ public class FileSorter
     {
         Path output = Path.of(outPath);
 
-        try(PrintWriter writer = new PrintWriter(
-                                      new BufferedWriter(
-                                            new OutputStreamWriter(Files.newOutputStream(output)))))
+        try(PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(output)))))
         {
 //            ArrayList<Owner> investors = prospectiveClients.stream().filter(client -> client.getProperties().size() > 1).collect(Collectors.toCollection(ArrayList::new));
 
