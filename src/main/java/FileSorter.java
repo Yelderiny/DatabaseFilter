@@ -15,12 +15,12 @@ import java.util.stream.Collectors;
 
 public class FileSorter
 {
-    private static final List<Property> allProperties = new ArrayList<>(); //all properties
-    private static final List<Owner> allOwners = new ArrayList<>(); //owners without properties
-    private static final List<Owner> prospectiveClients = new ArrayList<>(); //owners with properties
+    private final List<Property> allProperties = new ArrayList<>(); //all properties
+    private final List<Owner> allOwners = new ArrayList<>(); //owners without properties
+    private final List<Owner> prospectiveClients = new ArrayList<>(); //owners with properties
 
     //constraints
-    private static final List<String> rejectedOwners = new ArrayList<>(Arrays.asList("bank", "properties", "limited", "investment", "estate", "estates",
+    private static final List<String> REJECTED_OWNERS = new ArrayList<>(Arrays.asList("bank", "properties", "limited", "investment", "estate", "estates",
             "engineering", "development", "llc", "l.l.c", "(l.l.c)", "ltd.", "ltd",  "finance", "commercial", "co", "h.h.",
             "sheikh", "prince", "princess", "tamweel", "united", "capital", "company", "aal", "h.h.al", "h.e", "p.j.s.c")); //list of owner keywords not allowed in the prospectiveClients list
 
@@ -30,12 +30,11 @@ public class FileSorter
      * @param index index of the relevant sheet
      * @param type an 'o' or 'p' which indicates whether it's a file of owners or properties
      */
-    public static void readExcel(final File inFile, final int index, final String type)
+    public void readExcel(final File inFile, final int index, final String type)
     {
         try (final FileInputStream input = new FileInputStream(inFile))
         {
             final var workbook = new XSSFWorkbook(input); //get workbook from the FileInputStream
-
             final var sheet = workbook.getSheetAt(index);
 
             if (type.equalsIgnoreCase("o")) allOwners.addAll(rowToOwner(sheet));
@@ -51,7 +50,7 @@ public class FileSorter
      * @param propSheet current Excel sheet
      * @return an arraylist of Property objects
      */
-    private static List<Property> rowToProperty(final XSSFSheet propSheet)
+    private List<Property> rowToProperty(final XSSFSheet propSheet)
     {
         final List<Property> propertyList = new ArrayList<>(); //return variable
         final var headerIndices = new HashMap<>(cellSeeker(propSheet, "P-NUMBER", "AREA", "PROJECT", "ROOMS DESCRIPTION", "ACTUAL AREA"));
@@ -88,7 +87,7 @@ public class FileSorter
      * @param ownSheet current Excel sheet
      * @return an arraylist of com.dreamcatcherbroker.leadgenerator.Owner objects
      */
-    private static List<Owner> rowToOwner(final XSSFSheet ownSheet)
+    private List<Owner> rowToOwner(final XSSFSheet ownSheet)
     {
         final List<Owner> ownersList = new ArrayList<>(); //return variable
         final var headerIndices = new HashMap<>(cellSeeker(ownSheet, "P-NUMBER", "EMAIL", "NAME", "GENDER", "PHONE", "MOBILE", "SECONDARY MOBILE"));
@@ -127,7 +126,7 @@ public class FileSorter
      * @param headers the input string headers
      * @return a hashmap of headers and their indices
      */
-    private static Map<String, Integer> cellSeeker(final XSSFSheet sheet, final String... headers)
+    private Map<String, Integer> cellSeeker(final XSSFSheet sheet, final String... headers)
     {
         final var indices = new HashMap<String, Integer>();
 
@@ -154,7 +153,7 @@ public class FileSorter
      * @param owner current owner
      * @param cell current cell
      */
-    private static void setPhoneNums(final Owner owner, final Cell cell)
+    private void setPhoneNums(final Owner owner, final Cell cell)
     {
         //the cell is not empty and the number is longer than 6 digits
         if (!cell.getStringCellValue().equals("") && cell.getStringCellValue().length() > 6)
@@ -171,7 +170,7 @@ public class FileSorter
      * @param owner current owner
      * @param cell current cell
      */
-    private static void setOwnerEmail(final Owner owner, final Cell cell)
+    private void setOwnerEmail(final Owner owner, final Cell cell)
     {
         if (!cell.getStringCellValue().equals(""))
         {
@@ -187,7 +186,7 @@ public class FileSorter
      *
      * Note: this seems inefficient. I don't like it.
      */
-    private static void setProperty()
+    private void setProperty()
     {
         //traverse the list of owners
         for (final Owner owner : allOwners)
@@ -253,7 +252,7 @@ public class FileSorter
         final var lowerCaseNames = new ArrayList<>(List.of(owner.getName().split(" "))); //isolate each word in the name and insert into an arraylist
         lowerCaseNames.replaceAll(String::toLowerCase); //change all names to lower case
 
-        boolean a = FilterUtils.hasCommonElements(lowerCaseNames, rejectedOwners); //owned by a developer/corporation/sheikh
+        boolean a = FilterUtils.hasCommonElements(lowerCaseNames, REJECTED_OWNERS); //owned by a developer/corporation/sheikh
         boolean b = owner.getPhoneNums().isEmpty() && owner.getEmail() == null; //no phone numbers and no e-mails (if either is missing that is fine)
 
         return !a && !b;
@@ -262,38 +261,35 @@ public class FileSorter
     /**
      * Creates a CSV file from the prospectiveClients extracted by findClients()
      */
-    public static void createFile(final String outPath, final String state)
+    public void createFile(final String outPath, final String state)
     {
         final var output = Path.of(outPath);
 
         try (final PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(output)))))
         {
-            //investors
             if (state.equalsIgnoreCase("i"))
-                prospectiveClients.stream().filter(client -> client.getProperties().size() > 1).forEach(writer::println);
+                prospectiveClients.stream().filter(client -> client.getProperties().size() > 1).forEach(writer::println); //investors
 
-            //homeowners
-            else if (state.equalsIgnoreCase("ho"))
-                prospectiveClients.stream().filter(client -> client.getProperties().size() == 1).forEach(writer::println);
+            else if (state.equalsIgnoreCase("h"))
+                prospectiveClients.stream().filter(client -> client.getProperties().size() == 1).forEach(writer::println); //homeowners
 
-            //all owners
-            else if (state.equalsIgnoreCase("all")) prospectiveClients.forEach(writer::println);
+            else if (state.equalsIgnoreCase("all")) prospectiveClients.forEach(writer::println); //all owners
         }
         catch (IOException e) { e.printStackTrace(); }
     }
 
-    public static void createFile(final String outPath) { createFile(outPath, "all"); }
+    public void createFile(final String outPath) { createFile(outPath, "all"); }
 
     /**
      * Creates an Excel file from the prospectiveClients arraylist
      * @param outFile output location
      */
-    public static void createExcelFile(final File outFile)
+    public void createExcelFile(final File outFile)
     {
         try(final FileOutputStream output = new FileOutputStream(outFile))
         {
             final var workbook = new XSSFWorkbook(); //create blank workbook
-            final var spreadsheet = workbook.createSheet( " Prospective Clients "); //create first spreadsheet
+            final var spreadsheet = workbook.createSheet( " Homeowners "); //create first spreadsheet
             final var spreadsheet2 = workbook.createSheet(" Investors "); //create second spreadsheet
 
             final Map <String, Object[]> clientInfo = new TreeMap<>(); //maps a number index to client information
@@ -310,7 +306,6 @@ public class FileSorter
             ExcelFileHelper(spreadsheet2, investorInfo, investors);
 
             workbook.write(output); //write the data into the workbook
-
         }
         catch (Exception e) { e.printStackTrace(); }
     }
@@ -321,13 +316,14 @@ public class FileSorter
      * @param map current map of indexes and clients
      * @param clients owners of properties
      */
-    private static void ExcelFileHelper(final XSSFSheet spreadsheet, final Map<String, Object[]> map, final List<Owner> clients)
+    private void ExcelFileHelper(final XSSFSheet spreadsheet, final Map<String, Object[]> map, final List<Owner> clients)
     {
         var tracker = new AtomicInteger(2); //tracker (starts at '2' because at '1' is the row header
         Row row;
 
         //iterate clients
-        clients.forEach(owner -> map.put("" + tracker.getAndIncrement(), new Object[] {owner.getName(), owner.getPhoneNums().toString(), owner.getEmail(), owner.getProperties().toString()})); //for each client, map an index to the client information
+        clients.forEach(owner -> map.put("" + tracker.getAndIncrement(),
+                new Object[] {owner.getName(), owner.getPhoneNums().toString(), owner.getEmail(), owner.getProperties().toString()})); //for each client, map an index to the client information
 
         //Iterate over data and write to sheet
         final Set <String> keyid = map.keySet(); //extract the indexes of the map
@@ -341,7 +337,7 @@ public class FileSorter
             int cellid = 0;
 
             //iterate the client object list
-            for (Object obj : objectArr)
+            for (final Object obj : objectArr)
             {
                 final Cell cell = row.createCell(cellid++); //create a cell for each object in the client object
                 cell.setCellValue((String)obj); //write into the cell with the object data
@@ -351,7 +347,7 @@ public class FileSorter
 
     public static void main(String[] args)
     {
-//        var townSquare = new FileSorter();
+        var townSquare = new FileSorter();
 //        var damacHills = new FileSorter();
 
 //        var damacHillsInFile = new File("/Users/yelderiny/Intelligence/DreamCatcher/Data/Damac Hills/DAMAC Hills (2020) copy.xlsx");
@@ -361,11 +357,11 @@ public class FileSorter
         var townSQuareOutFile = new File("/Users/yelderiny/Intelligence/DreamCatcher/Data/Town Square/townSquare_filtered.xlsx");
 
 
-        readExcel(townSquareInFile,0, "p");
-        readExcel(townSquareInFile,1, "o");
-        readExcel(townSquareInFile,2, "o");
+        townSquare.readExcel(townSquareInFile,0, "p");
+        townSquare.readExcel(townSquareInFile,1, "o");
+        townSquare.readExcel(townSquareInFile,2, "o");
 
-        createExcelFile(townSQuareOutFile);
+        townSquare.createExcelFile(townSQuareOutFile);
 
 
 
