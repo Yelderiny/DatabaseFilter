@@ -1,5 +1,6 @@
 import java.io.Serial;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class Owner
@@ -11,7 +12,7 @@ public class Owner
         private int pNum; //the primary key in both lists (property number)
 
         //list of properties owned
-        private final ArrayList<Property> properties = new ArrayList<>()
+        private final List<Property> properties = new ArrayList<>()
         {
             @Serial
             private static final long serialVersionUID = 1L;
@@ -21,7 +22,7 @@ public class Owner
         };
 
         //list of phone numbers provided
-        private final ArrayList<String> phoneNums = new ArrayList<>()
+        private final List<String> phoneNums = new ArrayList<>()
         {
             @Serial
             private static final long serialVersionUID = 1L;
@@ -35,23 +36,17 @@ public class Owner
         public String getEmail() { return email; }
         public String getSex() { return sex; }
         public int getpNum() { return pNum; }
-        public ArrayList<Property> getProperties() { return properties; }
-        public ArrayList<String> getPhoneNums() { return phoneNums; }
+        public List<Property> getProperties() { return properties; }
+        public List<String> getPhoneNums() { return phoneNums; }
 
         //mutators
-        public void setName(String name) { this.name = name; }
-        public void setEmail(String email) { this.email = email; }
-        public void setSex(String sex) { this.sex = sex; }
-        public void setpNum(int pNum) { this.pNum = pNum; }
-        public void addProperty(Property property) { properties.add(property); }
-        public void addProperty(ArrayList<Property> list)
-        {
-            for (Property property: list)
-            {
-                addProperty(property);
-            }
-        }
-        public void addPhoneNums(String phoneNum) { phoneNums.add(phoneNum); }
+        public void setName(final String name) { this.name = name; }
+        public void setEmail(final String email) { this.email = email; }
+        public void setSex(final String sex) { this.sex = sex; }
+        public void setpNum(final int pNum) { this.pNum = pNum; }
+        public void addProperty(final Property property) { properties.add(property); }
+        public void addProperty(final List<Property> list) { list.forEach(this::addProperty); }
+        public void addPhoneNums(final String phoneNum) { phoneNums.add(phoneNum); }
 
 
         @Override
@@ -63,6 +58,5 @@ public class Owner
             return String.format("Name: %s -%s \ne-Mail: %s \n", getName(), getSex(), getEmail())
                     .concat("Phone Numbers: " + getPhoneNums().toString() + "\nProperties: \n" + sb);
         }
-
 }
 
